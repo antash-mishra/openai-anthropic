@@ -3,7 +3,7 @@
 [![crates.io](https://img.shields.io/crates/v/openai.svg)](https://crates.io/crates/openai/)
 [![Rust workflow](https://github.com/rellfy/openai/actions/workflows/test.yml/badge.svg)](https://github.com/rellfy/openai/actions/workflows/test.yml)
 
-An unofficial Rust library for the OpenAI API.
+An unofficial Rust library for OpenAI and Anthropic API.
 
 > **Warning**
 >
