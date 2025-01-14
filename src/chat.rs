@@ -536,7 +536,7 @@ mod tests {
     #[tokio::test]
     async fn chat() {
         dotenv().ok();
-        let credentials = Credentials::from_env();
+        let credentials = Credentials::from_env(crate::ApiProvider::OpenAI);
 
         let chat_completion = ChatCompletion::builder(
             "gpt-3.5-turbo",
@@ -574,7 +574,7 @@ mod tests {
     #[tokio::test]
     async fn chat_seed() {
         dotenv().ok();
-        let credentials = Credentials::from_env();
+        let credentials = Credentials::from_env(crate::ApiProvider::OpenAI);
 
         let chat_completion = ChatCompletion::builder(
             "gpt-3.5-turbo",
@@ -614,7 +614,7 @@ mod tests {
     #[tokio::test]
     async fn chat_stream() {
         dotenv().ok();
-        let credentials = Credentials::from_env();
+        let credentials = Credentials::from_env(crate::ApiProvider::OpenAI);
 
         let chat_stream = ChatCompletion::builder(
             "gpt-3.5-turbo",
@@ -651,7 +651,7 @@ mod tests {
     #[tokio::test]
     async fn chat_function() {
         dotenv().ok();
-        let credentials = Credentials::from_env();
+        let credentials = Credentials::from_env(crate::ApiProvider::OpenAI);
 
         let chat_stream = ChatCompletion::builder(
             "gpt-4o",
@@ -722,7 +722,7 @@ mod tests {
     #[tokio::test]
     async fn chat_response_format_json() {
         dotenv().ok();
-        let credentials = Credentials::from_env();
+        let credentials = Credentials::from_env(crate::ApiProvider::OpenAI);
         let chat_completion = ChatCompletion::builder(
             "gpt-3.5-turbo",
             [ChatCompletionMessage {
@@ -797,7 +797,7 @@ mod tests {
     #[tokio::test]
     async fn chat_tool_response_completion() {
         dotenv().ok();
-        let credentials = Credentials::from_env();
+        let credentials = Credentials::from_env(crate::ApiProvider::OpenAI);
 
         let chat_completion = ChatCompletion::builder(
             "gpt-4o-mini",

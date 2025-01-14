@@ -176,7 +176,7 @@ mod tests {
     #[tokio::test]
     async fn completion() {
         dotenv().ok();
-        let credentials = Credentials::from_env();
+        let credentials = Credentials::from_env(crate::ApiProvider::OpenAI);
 
         let completion = Completion::builder(DEFAULT_LEGACY_MODEL)
             .prompt("Say this is a test")

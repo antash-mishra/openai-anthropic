@@ -98,7 +98,7 @@ mod tests {
     #[ignore]
     async fn edit() {
         dotenv().ok();
-        let credentials = Credentials::from_env();
+        let credentials = Credentials::from_env(crate::ApiProvider::OpenAI);
 
         let edit = Edit::builder("text-davinci-edit-001", "Fix the spelling mistakes")
             .input("What day of the wek is it?")

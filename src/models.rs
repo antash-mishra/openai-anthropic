@@ -52,7 +52,7 @@ mod tests {
     #[tokio::test]
     async fn model() {
         dotenv().ok();
-        let credentials = Credentials::from_env();
+        let credentials = Credentials::from_env(crate::ApiProvider::OpenAI);
         let model = Model::fetch(DEFAULT_LEGACY_MODEL, credentials)
             .await
             .unwrap();

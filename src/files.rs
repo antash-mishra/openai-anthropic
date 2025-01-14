@@ -324,7 +324,7 @@ mod tests {
     #[tokio::test]
     async fn upload_file() {
         dotenv().ok();
-        let credentials = Credentials::from_env();
+        let credentials = Credentials::from_env(crate::ApiProvider::OpenAI);
         let file_upload = test_upload_builder()
             .credentials(credentials)
             .create()
@@ -340,7 +340,7 @@ mod tests {
     #[tokio::test]
     async fn missing_file() {
         dotenv().ok();
-        let credentials = Credentials::from_env();
+        let credentials = Credentials::from_env(crate::ApiProvider::OpenAI);
         let test_builder = File::builder()
             .file_name("test_data/missing_file.jsonl")
             .credentials(credentials)
@@ -358,7 +358,7 @@ mod tests {
     #[tokio::test]
     async fn list_files() {
         dotenv().ok();
-        let credentials = Credentials::from_env();
+        let credentials = Credentials::from_env(crate::ApiProvider::OpenAI);
         // ensure at least one file exists
         test_upload_builder().create().await.unwrap();
         let openai_files = Files::list(credentials).await.unwrap();
@@ -377,7 +377,7 @@ mod tests {
     #[tokio::test]
     async fn delete_files() {
         dotenv().ok();
-        let credentials = Credentials::from_env();
+        let credentials = Credentials::from_env(crate::ApiProvider::OpenAI);
         // ensure at least one file exists
         test_upload_builder().create().await.unwrap();
         // wait to avoid recent upload still processing error
@@ -401,7 +401,7 @@ mod tests {
     #[tokio::test]
     async fn get_file_and_contents() {
         dotenv().ok();
-        let credentials = Credentials::from_env();
+        let credentials = Credentials::from_env(crate::ApiProvider::OpenAI);
 
         let file = test_upload_builder()
             .credentials(credentials.clone())

@@ -113,7 +113,7 @@ mod tests {
     #[tokio::test]
     async fn embeddings() {
         dotenv().ok();
-        let credentials = Credentials::from_env();
+        let credentials = Credentials::from_env(crate::ApiProvider::OpenAI);
 
         let embeddings = Embeddings::create(
             "text-embedding-ada-002",
@@ -130,7 +130,7 @@ mod tests {
     #[tokio::test]
     async fn embedding() {
         dotenv().ok();
-        let credentials = Credentials::from_env();
+        let credentials = Credentials::from_env(crate::ApiProvider::OpenAI);
 
         let embedding = Embedding::create(
             "text-embedding-ada-002",

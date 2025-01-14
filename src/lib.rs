@@ -1,5 +1,5 @@
 use reqwest::multipart::Form;
-use reqwest::{header::AUTHORIZATION, Client, Method, RequestBuilder, Response};
+use reqwest::{header::AUTHORIZATION,header::CONTENT_TYPE, Client, Method, RequestBuilder, Response};
 use reqwest_eventsource::{CannotCloneRequestError, EventSource, RequestBuilderExt};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::env;
@@ -13,41 +13,78 @@ pub mod embeddings;
 pub mod files;
 pub mod models;
 pub mod moderations;
+pub mod anthrophic_chat;
 
 pub static DEFAULT_BASE_URL: LazyLock<String> =
     LazyLock::new(|| String::from("https://api.openai.com/v1/"));
 static DEFAULT_CREDENTIALS: LazyLock<RwLock<Credentials>> =
-    LazyLock::new(|| RwLock::new(Credentials::from_env()));
+    LazyLock::new(|| {
+        let provider = ApiProvider::OpenAI;
+        RwLock::new(Credentials::from_env(provider))});
+
+
+// Holds the api provider
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum ApiProvider {
+    OpenAI,
+    Anthropic,
+}
 
 /// Holds the API key and base URL for an OpenAI-compatible API.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Credentials {
+    provider: ApiProvider,
     api_key: String,
     base_url: String,
 }
 
+
 impl Credentials {
-    pub fn new(api_key: impl Into<String>, base_url: impl Into<String>) -> Self {
+    /// Creates a new Credentials object for a specific provider.
+    pub fn new(
+        api_key: impl Into<String>,
+        base_url: impl Into<String>,
+    ) -> Self {
         let base_url = parse_base_url(base_url.into());
+        let provider = Self::infer_provider(&base_url);
+
         Self {
             api_key: api_key.into(),
             base_url,
+            provider
         }
     }
 
-    /// Fetches the credentials from the ENV variables
-    /// OPENAI_KEY and OPENAI_BASE_URL.
+    /// Fetches credentials from the environment variables for a specific provider.
     /// # Panics
-    /// This function will panic if the key variable is missing from the env.
-    /// If only the base URL variable is missing, it will use the default.
-    pub fn from_env() -> Credentials {
-        let api_key = env::var("OPENAI_KEY").unwrap();
-        let base_url_unparsed = env::var("OPENAI_BASE_URL").unwrap_or_else(|e| match e {
-            VarError::NotPresent => DEFAULT_BASE_URL.clone(),
-            VarError::NotUnicode(v) => panic!("OPENAI_BASE_URL is not unicode: {v:#?}"),
-        });
+    /// This function panics if the necessary environment variables are missing.
+    pub fn from_env(provider:ApiProvider) -> Credentials {
+        let (api_key_var, base_url_var) = match provider {
+            ApiProvider::OpenAI => ("OPENAI_KEY", "OPENAI_BASE_URL"),
+            ApiProvider::Anthropic => ("ANTHROPIC_KEY", "ANTHROPIC_URL"),
+        };
+        
+        let api_key = env::var(api_key_var)
+            .unwrap_or_else(|_| panic!("Environment variable {api_key_var} is not set"));
+        
+        let base_url_unparsed = env::var(base_url_var)
+            .unwrap_or_else(|_| panic!("Environment variable {base_url_var} is not set"));
+
         let base_url = parse_base_url(base_url_unparsed);
-        Credentials { api_key, base_url }
+
+        Credentials { api_key, base_url, provider}
+
+    }
+
+    /// Infers the provider based on the base URL.
+    fn infer_provider(base_url: &str) -> ApiProvider {
+        if base_url.contains("openai") {
+            ApiProvider::OpenAI
+        } else if base_url.contains("anthropic") {
+            ApiProvider::Anthropic
+        } else {
+            panic!("Unrecognized base URL: {}", base_url);
+        }
     }
 
     pub fn api_key(&self) -> &str {
@@ -57,7 +94,41 @@ impl Credentials {
     pub fn base_url(&self) -> &str {
         &self.base_url
     }
+
+    pub fn provider(&self) -> &ApiProvider {
+        &self.provider
+    }
 }
+
+
+// pub struct UnifiedCredentials {
+//     openai: Option<Credentials>,
+//     anthropic: Option<Credentials>,
+// }
+
+// impl UnifiedCredentials {
+//     /// Creates a new UnifiedCredentials with optional OpenAI and Anthropic credentials.
+//     pub fn new(openai: Option<Credentials>, anthropic: Option<Credentials>) -> Self {
+//         Self { openai, anthropic }
+//     }
+
+//     /// Fetches credentials from environment variables for both providers.
+//     pub fn from_env() -> Self {
+//         let openai = Credentials::from_env(ApiProvider::OpenAI);
+//         let anthropic = Credentials::from_env(ApiProvider::Anthropic);
+//         Self::new(openai, anthropic)
+//     }
+
+//     pub fn openai(&self) -> Option<&Credentials> {
+//         self.openai.as_ref()
+//     }
+
+//     pub fn anthropic(&self) -> Option<&Credentials> {
+//         self.anthropic.as_ref()
+//     }
+// }
+
+
 
 #[derive(Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct OpenAiError {
@@ -101,6 +172,14 @@ pub struct Usage {
     pub total_tokens: u32,
 }
 
+#[derive(Deserialize, Clone, Copy, Debug, Eq, PartialEq)]
+pub struct AnthropicUsage {
+    pub input_tokens: u64,
+    pub cache_creation_input_tokens: u64,
+    pub cache_read_input_tokens: u64,
+    pub output_tokens: u64,
+}
+
 pub type ApiResponseOrError<T> = Result<T, OpenAiError>;
 
 impl From<reqwest::Error> for OpenAiError {
@@ -112,6 +191,16 @@ impl From<reqwest::Error> for OpenAiError {
 impl From<std::io::Error> for OpenAiError {
     fn from(value: std::io::Error) -> Self {
         OpenAiError::new(value.to_string(), "io".to_string())
+    }
+}
+
+// Adding serde error implementation
+impl From<serde_json::Error> for OpenAiError {
+    fn from(error: serde_json::Error) -> Self {
+        OpenAiError::new(
+            error.to_string(),
+            "json_parse_error".to_string(),
+        )
     }
 }
 
@@ -145,6 +234,7 @@ where
     F: FnOnce(RequestBuilder) -> RequestBuilder,
 {
     let client = Client::new();
+    
     let credentials =
         credentials_opt.unwrap_or_else(|| DEFAULT_CREDENTIALS.read().unwrap().clone());
     let mut request = client.request(method, format!("{}{route}", credentials.base_url));
@@ -227,6 +317,99 @@ where
     )
     .await
 }
+
+async fn anthropic_request_json<F, T>(
+    method: Method,
+    route: &str,
+    builder: F,
+    credentials_opt: Option<Credentials>,
+) -> ApiResponseOrError<T>
+where
+    F: FnOnce(RequestBuilder) -> RequestBuilder,
+    T: DeserializeOwned,
+{
+    let response = anthropic_request(method, route, builder, credentials_opt)
+        .await?;
+        // .json()
+        // .await?;
+    let text = response.text().await?;
+    println!("Raw Response: {}", text);
+
+    // Parse the text
+    let api_response = serde_json::from_str(&text)?;
+
+    match api_response {
+        ApiResponse::Ok(t) => Ok(t),
+        ApiResponse::Err { error } => Err(error),
+    }
+}
+
+async fn anthropic_request<F>(
+    method: Method,
+    route: &str,
+    builder: F,
+    credentials_opt: Option<Credentials>,
+) -> ApiResponseOrError<Response>
+where
+    F: FnOnce(RequestBuilder) -> RequestBuilder,
+{
+    let client = Client::new();
+    let credentials =
+        credentials_opt.unwrap_or_else(|| DEFAULT_CREDENTIALS.read().unwrap().clone());
+    let mut request = client.request(method, format!("{}{route}", credentials.base_url));
+    request = builder(request);
+    let response = request
+        .header("x-api-key", format!("{}", credentials.api_key))
+        .header("anthropic-version", "2023-06-01")
+        .header(CONTENT_TYPE, format!("application/json"))
+        .send()
+        .await?;
+
+    Ok(response)
+}
+
+async fn anthropic_request_stream<F>(
+    method: Method,
+    route: &str,
+    builder: F,
+    credentials_opt: Option<Credentials>,
+) -> Result<EventSource, CannotCloneRequestError>
+where
+    F: FnOnce(RequestBuilder) -> RequestBuilder,
+{
+    let client = Client::new();
+    let credentials =
+        credentials_opt.unwrap_or_else(|| DEFAULT_CREDENTIALS.read().unwrap().clone());
+    let mut request = client.request(method, format!("{}{route}", credentials.base_url));
+    request = builder(request);
+    let stream = request
+        .header("x-api-key", format!("{}", credentials.api_key))
+        .header("anthropic-version", "2023-06-01")
+        .header(CONTENT_TYPE, format!("application/json"))
+        .eventsource()?;
+    Ok(stream)
+}
+
+async fn anthropic_post<J, T>(
+    route: &str,
+    json: &J,
+    credentials_opt: Option<Credentials>,
+) -> ApiResponseOrError<T>
+where
+    J: Serialize + ?Sized,
+    T: DeserializeOwned,
+{
+    let resp = anthropic_request_json(
+        Method::POST,
+        route,
+        |request| request.json(json),
+        credentials_opt,
+    )
+    .await;
+
+    resp
+}
+
 
 /// Sets the key for all OpenAI API functions.
 ///
