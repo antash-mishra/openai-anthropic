@@ -152,6 +152,12 @@ pub struct AnthropicChatCompletionRequest {
 }
 
 impl<C> AnthropicChatCompletionGeneric<C> {
+    /// Creates a new builder for Anthropic chat completion requests
+    /// 
+    /// # Arguments
+    /// * `model` - The model to use (e.g. "claude-2")
+    /// * `system` - The system prompt/instructions
+    /// * `messages` - Vector of chat messages for the conversation    
     pub fn builder(
         model: &str,
         system: &str,
@@ -167,6 +173,10 @@ impl<C> AnthropicChatCompletionGeneric<C> {
 
 
 impl AnthropicChatCompletion {
+    /// Makes a POST request to create a new chat completion
+    /// 
+    /// # Arguments
+    /// * `request` - The chat completion request parameters
     pub async fn create(request: AnthropicChatCompletionRequest) -> ApiResponseOrError<Self> {
         let credentials_opt = request.credentials.clone();
         anthropic_post("messages", &request, credentials_opt).await
@@ -174,20 +184,12 @@ impl AnthropicChatCompletion {
 }
 
 impl AnthropicChatCompletionBuilder {
+    /// Builds and executes the chat completion request
     pub async fn create(self) -> ApiResponseOrError<AnthropicChatCompletion> {
         let resp = AnthropicChatCompletion::create(self.build().unwrap()).await;
         resp
     }
 }
-
-
-
-// fn clone_default_unwrapped_option_string(string: &Option<String>) -> String {
-//     match string {
-//         Some(value) => value.clone(),
-//         None => "".to_string(),
-//     }
-// }
 
 fn default_tool_calls_deserialization() -> Vec<ToolCall> {
     Vec::new()

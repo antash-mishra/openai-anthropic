@@ -101,35 +101,6 @@ impl Credentials {
 }
 
 
-// pub struct UnifiedCredentials {
-//     openai: Option<Credentials>,
-//     anthropic: Option<Credentials>,
-// }
-
-// impl UnifiedCredentials {
-//     /// Creates a new UnifiedCredentials with optional OpenAI and Anthropic credentials.
-//     pub fn new(openai: Option<Credentials>, anthropic: Option<Credentials>) -> Self {
-//         Self { openai, anthropic }
-//     }
-
-//     /// Fetches credentials from environment variables for both providers.
-//     pub fn from_env() -> Self {
-//         let openai = Credentials::from_env(ApiProvider::OpenAI);
-//         let anthropic = Credentials::from_env(ApiProvider::Anthropic);
-//         Self::new(openai, anthropic)
-//     }
-
-//     pub fn openai(&self) -> Option<&Credentials> {
-//         self.openai.as_ref()
-//     }
-
-//     pub fn anthropic(&self) -> Option<&Credentials> {
-//         self.anthropic.as_ref()
-//     }
-// }
-
-
-
 #[derive(Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct OpenAiError {
     pub message: String,
